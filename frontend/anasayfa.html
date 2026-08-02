@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Elektrik Direk Arıza Takip Sistemi</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Segoe UI, Arial, sans-serif;
+    background: linear-gradient(135deg, #1e3a5f, #2c5282);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+  }
+  .container { text-align: center; max-width: 700px; padding: 20px; }
+  h1 { font-size: 32px; margin-bottom: 10px; }
+  p.altbaslik { opacity: 0.85; font-size: 15px; margin-bottom: 45px; }
+  .kartlar { display: flex; gap: 25px; justify-content: center; flex-wrap: wrap; }
+  .kart {
+    background: white;
+    color: #1a1a1a;
+    border-radius: 12px;
+    padding: 35px 30px;
+    width: 260px;
+    text-decoration: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    transition: transform 0.15s ease;
+  }
+  .kart:hover { transform: translateY(-4px); }
+  .kart .ikon { font-size: 42px; margin-bottom: 12px; }
+  .kart h2 { font-size: 18px; color: #1e3a5f; margin-bottom: 8px; }
+  .kart p { font-size: 13px; color: #666; line-height: 1.5; }
+  .kart.halk { border-top: 4px solid #c0392b; }
+  .kart.yonetim { border-top: 4px solid #1e3a5f; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>⚡ Elektrik Direk Arıza Takip Sistemi</h1>
+  <p class="altbaslik">TEİAŞ Staj Projesi — Lütfen giriş türünüzü seçin</p>
+
+  <div class="kartlar">
+    <a href="halk-bildirim.html" class="kart halk">
+      <div class="ikon">📢</div>
+      <h2>Arıza Bildir</h2>
+      <p>Elektrik direklerinde gördüğünüz bir sorunu buradan hızlıca bildirebilirsiniz. Giriş gerektirmez.</p>
+    </a>
+
+    <a href="yonetim-paneli.html" class="kart yonetim">
+      <div class="ikon">🔧</div>
+      <h2>Yönetim Paneli</h2>
+      <p>Saha ekibi ve mühendisler için. Arızaları görüntüleyip müdahale edebilirsiniz. Giriş gereklidir.</p>
+    </a>
+  </div>
+</div>
+
+</body>
+</html>

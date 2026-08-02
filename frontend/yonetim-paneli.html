@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="tr">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<head>
+<meta charset="UTF-8">
+<title>Elektrik Direk Arıza Takip Sistemi</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Segoe UI, Arial, sans-serif; background: #f4f6f8; color: #1a1a1a; }
+  header { background: #1e3a5f; color: white; padding: 20px 30px; }
+  header h1 { font-size: 22px; }
+  header p { opacity: 0.8; font-size: 14px; margin-top: 4px; }
+  .container { max-width: 1000px; margin: 30px auto; padding: 0 20px; }
+  .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .card h2 { font-size: 18px; margin-bottom: 15px; color: #1e3a5f; }
+  form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  form label { font-size: 13px; font-weight: 600; margin-bottom: 4px; display: block; }
+  form select, form input, form textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+  form textarea { grid-column: span 2; min-height: 60px; }
+  form button { grid-column: span 2; background: #1e3a5f; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+  form button:hover { background: #16304d; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px; border-bottom: 1px solid #eee; }
+  th { background: #f0f2f5; color: #444; }
+  .oncelik-yuksek { color: #c0392b; font-weight: 600; }
+  .oncelik-orta { color: #d68910; font-weight: 600; }
+  .oncelik-dusuk { color: #27ae60; font-weight: 600; }
+  .durum-badge { padding: 3px 10px; border-radius: 12px; font-size: 12px; color: white; }
+  .durum-acik { background: #c0392b; }
+  .durum-inceleniyor { background: #d68910; }
+  .durum-kapali { background: #27ae60; }
+  #mesaj { margin-top: 10px; font-size: 13px; }
+  .btn-kucuk { padding: 5px 10px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; margin-right: 5px; color: white; }
+.btn-sari { background: #d68910; }
+.btn-sari:hover { background: #b8740c; }
+.btn-yesil { background: #27ae60; }
+.btn-yesil:hover { background: #219150; }
+</style>
+</head>
+<body>
+ <div id="girisEkrani" style="min-height:100vh; display:flex; align-items:center; justify-content:center; background:#1e3a5f;">
+  <div style="background:white; padding:35px; border-radius:10px; width:320px; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+    <h2 style="color:#1e3a5f; margin-bottom:20px; text-align:center;">Yönetim Paneli Girişi</h2>
+    <form id="girisForm">
+      <label style="font-size:13px; font-weight:600; display:block; margin-bottom:5px;">Kullanıcı Adı</label>
+      <input type="text" id="kullaniciAdi" required style="width:100%; padding:10px; border:1px solid #ccc; border-radius:5px; margin-bottom:14px;">
+
+      <label style="font-size:13px; font-weight:600; display:block; margin-bottom:5px;">Şifre</label>
+      <input type="password" id="sifre" required style="width:100%; padding:10px; border:1px solid #ccc; border-radius:5px; margin-bottom:14px;">
+
+      <button type="submit" style="width:100%; background:#1e3a5f; color:white; border:none; padding:12px; border-radius:5px; cursor:pointer; font-size:14px;">Giriş Yap</button>
+    </form>
+    <div id="girisHata" style="color:#c0392b; font-size:13px; margin-top:10px; text-align:center;"></div>
+  </div>
+</div> 
+
+<div id="anaPanel" style="display:none;">
+<header>
+  <h1>⚡ Elektrik Direk Arıza Takip Sistemi</h1>
+  <p>TEİAŞ Staj Projesi</p>
+</header>
+
+<div class="container">
+<div class="card">
+  <h2>Direk Konumları</h2>
+  <div id="harita" style="height: 400px; border-radius: 6px;"></div>
+</div>
+  <div class="card">
+    <h2>Yeni Arıza Bildir</h2>
+    <form id="arizaForm">
+      <div>
+        <label>Direk</label>
+        <select id="direkSelect" required></select>
+      </div>
+      <div>
+        <label>Öncelik</label>
+        <select id="oncelikSelect" required>
+          <option value="dusuk">Düşük</option>
+          <option value="orta">Orta</option>
+          <option value="yuksek">Yüksek</option>
+        </select>
+      </div>
+      <textarea id="aciklama" placeholder="Arıza açıklaması..." required></textarea>
+      <button type="submit">Arızayı Bildir</button>
+    </form>
+    <div id="mesaj"></div>
+  </div>
+
+  <div class="card">
+    <h2>Arıza Listesi</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Direk</th><th>Bölge</th><th>Açıklama</th><th>Öncelik</th><th>Durum</th><th>Tarih</th><th>İşlem</th>
+        </tr>
+      </thead>
+      <tbody id="arizaTablosu"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const API_URL = 'http://localhost:3000';
+document.getElementById('girisForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const kullanici_adi = document.getElementById('kullaniciAdi').value;
+  const sifre = document.getElementById('sifre').value;
+  const hataDiv = document.getElementById('girisHata');
+
+  try {
+    const res = await fetch(`${API_URL}/api/giris`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kullanici_adi, sifre })
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      document.getElementById('girisEkrani').style.display = 'none';
+      document.getElementById('anaPanel').style.display = 'block';
+      direkleriYukle();
+      arizalariYukle();
+      haritayiYukle();
+    } else {
+      hataDiv.textContent = data.hata;
+    }
+  } catch (err) {
+    hataDiv.textContent = 'Sunucuya bağlanılamadı';
+  }
+});
+async function direkleriYukle() {
+  const res = await fetch(`${API_URL}/api/direkler`);
+  const direkler = await res.json();
+  const select = document.getElementById('direkSelect');
+  select.innerHTML = direkler.map(d => `<option value="${d.id}">${d.kod} - ${d.bolge}</option>`).join('');
+}
+
+async function arizalariYukle() {
+  const res = await fetch(`${API_URL}/api/arizalar`);
+  const arizalar = await res.json();
+  const tbody = document.getElementById('arizaTablosu');
+  tbody.innerHTML = arizalar.map(a => `
+    <tr>
+      <td>${a.direk_kod}</td>
+      <td>${a.bolge}</td>
+      <td>${a.aciklama}</td>
+      <td class="oncelik-${a.oncelik}">${a.oncelik}</td>
+      <td><span class="durum-badge durum-${a.durum}">${a.durum}</span></td>
+      <td>${new Date(a.bildirilme_tarihi).toLocaleString('tr-TR')}</td>
+      <td>
+        ${a.durum === 'acik' ? `<button onclick="durumGuncelle(${a.id}, 'inceleniyor')" class="btn-kucuk btn-sari">İncelemeye Al</button>` : ''}
+        ${a.durum !== 'kapali' ? `<button onclick="durumGuncelle(${a.id}, 'kapali')" class="btn-kucuk btn-yesil">Çözüldü</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function durumGuncelle(id, yeniDurum) {
+  await fetch(`${API_URL}/api/arizalar/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ durum: yeniDurum })
+  });
+  arizalariYukle();
+}
+
+document.getElementById('arizaForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const direk_id = document.getElementById('direkSelect').value;
+  const oncelik = document.getElementById('oncelikSelect').value;
+  const aciklama = document.getElementById('aciklama').value;
+
+  const res = await fetch(`${API_URL}/api/arizalar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ direk_id, tur: 'manuel', aciklama, oncelik })
+  });
+
+  const data = await res.json();
+  document.getElementById('mesaj').textContent = data.mesaj || data.hata;
+  document.getElementById('aciklama').value = '';
+  arizalariYukle();
+});
+let harita;
+let direkMarkerlari = {};
+
+async function haritayiYukle() {
+  harita = L.map('harita').setView([37.9144, 40.2306], 12); // Diyarbakır merkezli başlangıç
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(harita);
+
+  const resDirek = await fetch(`${API_URL}/api/direkler`);
+  const direkler = await resDirek.json();
+
+  const resAriza = await fetch(`${API_URL}/api/arizalar`);
+  const arizalar = await resAriza.json();
+
+  direkler.forEach(d => {
+    // Bu direğe ait açık arıza var mı kontrol et
+    const acikArizaVarMi = arizalar.some(a => a.direk_kod === d.kod && a.durum !== 'kapali');
+    const renk = acikArizaVarMi ? 'red' : 'green';
+
+    const icon = L.divIcon({
+      html: `<div style="background:${renk}; width:16px; height:16px; border-radius:50%; border:2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>`,
+      className: '',
+      iconSize: [16, 16]
+    });
+
+    const marker = L.marker([d.enlem, d.boylam], { icon }).addTo(harita);
+    marker.bindPopup(`<b>${d.kod}</b><br>${d.bolge}<br>Durum: ${acikArizaVarMi ? '⚠️ Açık arıza var' : '✅ Sorun yok'}`);
+    direkMarkerlari[d.id] = marker;
+  });
+}
+</script>
+</div>
+</body>
+</html>

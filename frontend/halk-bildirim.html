@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Arıza Bildir - Elektrik Direk Arıza Hattı</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Segoe UI, Arial, sans-serif; background: #f4f6f8; color: #1a1a1a; }
+  header { background: #1e3a5f; color: white; padding: 24px 30px; text-align: center; }
+  header h1 { font-size: 24px; }
+  header p { opacity: 0.85; font-size: 14px; margin-top: 6px; }
+  .container { max-width: 600px; margin: 30px auto; padding: 0 20px; }
+  .card { background: white; border-radius: 10px; padding: 25px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+  .card h2 { font-size: 18px; margin-bottom: 8px; color: #1e3a5f; }
+  .card p.aciklama { font-size: 13px; color: #666; margin-bottom: 20px; }
+  label { font-size: 14px; font-weight: 600; margin-bottom: 6px; display: block; margin-top: 16px; }
+  select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+  textarea { min-height: 90px; resize: vertical; }
+  #harita { height: 250px; border-radius: 6px; margin-top: 8px; }
+  button { width: 100%; background: #c0392b; color: white; border: none; padding: 14px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: 600; margin-top: 20px; }
+  button:hover { background: #a93226; }
+  #mesaj { margin-top: 16px; padding: 12px; border-radius: 6px; font-size: 14px; display: none; }
+  #mesaj.basarili { display: block; background: #d4edda; color: #155724; }
+  #mesaj.hata { display: block; background: #f8d7da; color: #721c24; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ Elektrik Direk Arıza Bildirim Hattı</h1>
+  <p>TEİAŞ - Elektrik direklerindeki arızaları buradan bildirebilirsiniz</p>
+</header>
+
+<div class="container">
+  <div class="card">
+    <h2>Arıza Bildir</h2>
+    <p class="aciklama">Haritadan en yakın direği işaretleyin veya listeden seçin, sorunu kısaca açıklayın.</p>
+
+    <form id="bildirimForm">
+      <label>Direk Seçin</label>
+      <select id="direkSelect" required></select>
+
+      <label>Haritadan Bulun</label>
+      <div id="harita"></div>
+
+      <label>Sorunu Açıklayın</label>
+      <textarea id="aciklama" placeholder="Örn: Direk eğik duruyor, kablo yerde sarkıyor, kıvılcım görüldü..." required></textarea>
+
+      <button type="submit">Arızayı Bildir</button>
+    </form>
+
+    <div id="mesaj"></div>
+  </div>
+</div>
+
+<script>
+const API_URL = 'http://localhost:3000';
+let harita;
+
+let direklerListesi = [];
+let secimMarker = null;
+
+async function baslat() {
+  const res = await fetch(`${API_URL}/api/direkler`);
+  direklerListesi = await res.json();
+
+  const select = document.getElementById('direkSelect');
+  select.innerHTML = direklerListesi.map(d => `<option value="${d.id}">${d.kod} - ${d.bolge}</option>`).join('');
+
+  harita = L.map('harita').setView([37.9144, 40.2306], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(harita);
+
+  direklerListesi.forEach(d => {
+    const marker = L.marker([d.enlem, d.boylam]).addTo(harita);
+    marker.bindPopup(`<b>${d.kod}</b><br>${d.bolge}`);
+  });
+
+  // Haritada herhangi bir yere tıklanınca en yakın direği bul
+  harita.on('click', (e) => {
+    const tiklananNokta = e.latlng;
+    const enYakinDirek = enYakiniBul(tiklananNokta.lat, tiklananNokta.lng);
+
+    select.value = enYakinDirek.id;
+
+    if (secimMarker) harita.removeLayer(secimMarker);
+    secimMarker = L.circleMarker([tiklananNokta.lat, tiklananNokta.lng], {
+      radius: 8, color: 'red', fillColor: 'red', fillOpacity: 0.6
+    }).addTo(harita);
+    secimMarker.bindPopup(`Seçilen konuma en yakın direk: <b>${enYakinDirek.kod}</b>`).openPopup();
+  });
+}
+
+// İki nokta arası mesafeyi hesaplayan basit fonksiyon (kilometre)
+function mesafeHesapla(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) ** 2 + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function enYakiniBul(lat, lon) {
+  let enYakin = direklerListesi[0];
+  let enKisaMesafe = mesafeHesapla(lat, lon, enYakin.enlem, enYakin.boylam);
+
+  direklerListesi.forEach(d => {
+    const mesafe = mesafeHesapla(lat, lon, d.enlem, d.boylam);
+    if (mesafe < enKisaMesafe) {
+      enKisaMesafe = mesafe;
+      enYakin = d;
+    }
+  });
+  return enYakin;
+}
+
+document.getElementById('bildirimForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const direk_id = document.getElementById('direkSelect').value;
+  const aciklama = document.getElementById('aciklama').value;
+  const mesajDiv = document.getElementById('mesaj');
+
+  try {
+    const res = await fetch(`${API_URL}/api/arizalar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ direk_id, tur: 'manuel', aciklama, oncelik: 'orta' })
+    });
+    const data = await res.json();
+
+    mesajDiv.className = 'basarili';
+    mesajDiv.textContent = '✅ Bildiriminiz alındı. İlgili ekip en kısa sürede müdahale edecektir.';
+    document.getElementById('aciklama').value = '';
+  } catch (err) {
+    mesajDiv.className = 'hata';
+    mesajDiv.textContent = '❌ Bir hata oluştu, lütfen tekrar deneyin.';
+  }
+});
+
+baslat();
+</script>
+
+</body>
+</html>
