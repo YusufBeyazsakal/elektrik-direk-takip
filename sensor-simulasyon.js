@@ -28,7 +28,7 @@ async function veriGonder() {
   const esik_deger = esikDegerler[olcum_turu];
 
   try {
-    const res = await fetch('http://localhost:3000/api/sensor-veri', {
+    const res = await fetch('https://elektrik-direk-takip.onrender.com/api/sensor-veri', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ direk_id, olcum_turu, deger, esik_deger })

@@ -108,6 +108,32 @@ app.get('/api/sensor-veri', async (req, res) => {
 });
 
 // Giriş kontrolü
+// Yeni kullanıcı kaydı (sadece davet kodu olanlar için)
+const KAYIT_ANAHTARI = 'TEIAS2026'; // Bu kodu bilmeyen kayıt olamaz
+
+app.post('/api/kayit', async (req, res) => {
+  try {
+    const { kullanici_adi, sifre, ad_soyad, davet_kodu } = req.body;
+
+    if (davet_kodu !== KAYIT_ANAHTARI) {
+      return res.status(403).json({ hata: 'Geçersiz davet kodu. Sadece yetkili personel kayıt olabilir.' });
+    }
+
+    const kontrol = await pool.query('SELECT id FROM kullanicilar WHERE kullanici_adi = $1', [kullanici_adi]);
+    if (kontrol.rows.length > 0) {
+      return res.status(400).json({ hata: 'Bu kullanıcı adı zaten alınmış' });
+    }
+
+    const result = await pool.query(
+      'INSERT INTO kullanicilar (kullanici_adi, sifre, ad_soyad) VALUES ($1, $2, $3) RETURNING id, kullanici_adi, ad_soyad, rol',
+      [kullanici_adi, sifre, ad_soyad]
+    );
+
+    res.json({ basarili: true, kullanici: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ hata: err.message });
+  }
+});
 app.post('/api/giris', async (req, res) => {
   try {
     const { kullanici_adi, sifre } = req.body;
